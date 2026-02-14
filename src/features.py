@@ -38,6 +38,9 @@ def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     df["month"] = d.month
     df["quarter"] = d.quarter
     df["is_month_end"] = d.is_month_end.astype(int)
+    # SNAP (food stamp) disbursements and payday cycles cluster on the 1st-3rd and
+    # 28th-31st of each month in Walmart POS data — visible in lag-1 residuals for
+    # FOODS series. A rolling mean washes this out; the binary flag preserves it.
     df["is_payday_window"] = ((d.day <= 3) | (d.day >= 28)).astype(int)
     return df
 
