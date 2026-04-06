@@ -57,6 +57,9 @@ def rolling_quantile_forecast(arr, dates, q_levels=(0.5, 0.9),
                               num_boost_round: int = 200) -> np.ndarray:
     """Expanding-window LightGBM-quantile forecast over the whole series.
 
+    Expanding window (not rolling): each refitting block trains on *all* data seen
+    so far, not just the last N days. This matters at DC level because M5 demand has
+    long-run price and event trends — a rolling window would throw away that context.
     The first ``start_frac`` of the series is seeded with a seasonal day-of-week
     quantile (so the array is full and usable), after which the model refits every
     ``block`` days on all prior data and predicts the next block out-of-sample.
