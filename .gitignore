@@ -1,0 +1,21 @@
+# Raw M5 (~500 MB) and the large regenerated panels/forecasts — see README to rebuild.
+# Everything else under data/ (small result tables, experiments.csv, results_summary.json)
+# is committed so the repo is self-documenting.
+data/raw_m5/
+data/panel.parquet
+data/lgbm_forecast.parquet
+data/neural_forecast.parquet
+data/dc_forecast_q.npz
+*.pt
+
+# noise
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+.DS_Store
+.venv/
+venv/
+
+# AI-assistant project context (kept local, not part of the public portfolio repo)
+CLAUDE.md

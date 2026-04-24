@@ -1,0 +1,1 @@
+{"forecast_source":"LightGBM-quantile (notebook 02b, production)","n_series":10000,"holdout_days":28,"best_deployable_policy":"PPO-Residual(ours)","best_deployable_cost_90d":1147974.6000000001,"best_deployable_fill_rate":0.95,"oracle_cost_90d":1000367.6,"ppo_cost_vs_newsvendor_pct":-3.6,"ppo_fill_rate":0.95}

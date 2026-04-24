@@ -1,0 +1,9 @@
+ts,run,regime,n_seeds,best_policy,best_cost,best_fill,oracle_cost,room_pct,ppo_cost,ppo_fill,best_classical,best_classical_cost,ppo_holding
+2026-06-11T20:37:49,T4_twin_baselines,new,30.0,Newsvendor,219066.2,0.971,155647.6,28.9,,,,,
+2026-06-11T20:30:13,T5_ppo_residual,,,,,,161983.3,,214832.8,0.962,Newsvendor,222059.9,
+2026-06-11T21:22:26,T4_twin_baselines,new,30.0,Newsvendor,219066.2,0.971,155647.6,28.9,,,,,
+2026-06-11T21:23:57,T4_twin_baselines,new,30.0,Newsvendor,219066.2,0.971,155647.6,28.9,,,,,
+2026-06-11T21:47:39,T5_ppo_residual,,,,,,161983.3,,214832.8,0.962,Newsvendor,222059.9,
+2026-06-12T11:46:41,T4_twin_baselines,new,30.0,Newsvendor,1168024.3,0.966,972010.9,16.8,,,,,
+2026-06-12T12:02:46,T4_twin_baselines,new,30.0,Newsvendor,1168024.3,0.966,972010.9,16.8,,,,,
+2026-06-12T12:03:43,T5_ppo_residual_pooling,,,,,,1000367.6,,1147974.6,0.95,Newsvendor,1190384.6,820798.4
