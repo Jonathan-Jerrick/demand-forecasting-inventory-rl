@@ -17,5 +17,6 @@ __pycache__/
 .venv/
 venv/
 
-# AI-assistant project context (kept local, not part of the public portfolio repo)
+# local planning/context files
 CLAUDE.md
+IMPROVEMENT_PLAN.md
