@@ -10,4 +10,3 @@ seaborn>=0.12
 shap>=0.43
 statsmodels>=0.14
 tqdm>=4.65
-pytest>=7.4        # tests/ — fast invariant checks, run with `pytest -q`
