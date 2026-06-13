@@ -83,9 +83,9 @@ The edge needs **both** the calibrated forecast in-state and cross-DC pooling. R
 
 ---
 
-## Summary
+## Headline
 
-> Calibrated LightGBM-quantile forecasts drive a residual PPO agent that beats Newsvendor by 3.6% at fill 0.950, landing closest to a clairvoyant oracle (~17% remaining headroom) on a non-myopic multi-DC twin. The edge requires both the forecast information and cross-DC pooling.
+PPO-Residual beats Newsvendor by 3.6% at fill 0.950 on the reworked twin. The agent needs both the calibrated forecast in-state and cross-DC pooling — removing either flips it to a loss. The clairvoyant oracle marks ~17% of remaining headroom below the best heuristic.
 
 ---
 
