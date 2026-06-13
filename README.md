@@ -1,18 +1,18 @@
 # Demand Forecasting & Inventory Optimization on M5
 
-End-to-end pipeline on the public [M5 dataset](https://www.kaggle.com/competitions/m5-forecasting-accuracy) (Walmart hierarchical daily sales, 2011–2016): probabilistic demand forecasting → inventory segmentation → RL-based replenishment on a multi-DC simulator.
+I built this to understand how a probabilistic forecast can actually drive an inventory decision, not just improve a metric. It runs on the public [M5 dataset](https://www.kaggle.com/competitions/m5-forecasting-accuracy) — 10,000 item×store daily sales series from Walmart (2011–2016) — and takes the forecast all the way to an order quantity on a multi-DC simulator, with a clairvoyant oracle to mark where theoretical optimality sits.
 
-10,000-series subset, 28-day holdout starting 2016-04-25.
+**Headline:** a residual PPO agent beats the analytical Newsvendor baseline by 3.6% at fill rate 0.950, on a 40-seed evaluation. The clairvoyant oracle sits ~17% below the best heuristic — that's what's left on the table.
 
 ---
 
-## What it does
+## Why these choices
 
-**Forecast:** Trains a calibrated quantile forecast (LightGBM and a GRU) over item-store series. Scored by pinball loss + interval coverage, not just point error — because on intermittent demand the cost-optimal median is often zero, making WRMSSE misleading for distributional models.
+**LightGBM over a neural net as the primary forecaster.** I tried both. The GRU I built is calibrated and non-collapsing (after fixing a mean-collapse bug in v1), but LightGBM-quantile still wins on pinball loss (0.631 vs 0.644) and coverage (0.860 vs 0.833) on the same 3k-series subset. This isn't surprising — most top M5 Kaggle solutions are GBM-based; the series are too sparse and tabular for a recurrent net to have a structural advantage. I kept the GRU in the repo because it shows the sequence-modelling work, but it's not the production forecaster.
 
-**Simulate:** Builds a multi-DC inventory simulator that replays real M5 demand with correlated shocks, stochastic lead times, fixed+batch ordering costs, and overflow holding. A clairvoyant oracle (sees future demand) sets the theoretical cost floor.
+**Residual PPO instead of from-scratch DQN.** My first RL attempt was a from-scratch Double-DQN. It lost to Newsvendor by 27% — it learned to under-order to cut holding cost, which torpedoed fill rate. The problem was the environment: a standard single-DC, linear-cost daily-ordering setup is near-optimally solved by the Newsvendor formula analytically, so RL had no room. I reworked the twin with correlated shocks, stochastic lead times, batch ordering cost, and lateral transshipment between DCs before touching RL again. The residual PPO formulation (action = correction on top of Newsvendor, not an order from scratch) was the other key fix — it starts at the analytical baseline and only learns to improve from there.
 
-**Optimize:** Trains a residual PPO agent — a learned correction on top of the Newsvendor order-up-to level — with a service-rate penalty so it can't win by cutting fill. The agent's state includes the real rolling forecast quantiles.
+**Pinball loss + coverage instead of WRMSSE for distributional models.** Over half the series-days are zero. The cost-optimal median of an intermittent series is zero, so a well-calibrated quantile model gets penalised by WRMSSE for being correct. I use WRMSSE only for the point-forecast tier and pinball+coverage for the distributional models — they're different questions.
 
 ---
 
@@ -26,24 +26,29 @@ End-to-end pipeline on the public [M5 dataset](https://www.kaggle.com/competitio
 | Base-Stock (forecast) | 1,314,022 | 0.976 |
 | Fixed-Order | 2,069,040 | 0.928 |
 
-PPO beats Newsvendor by 3.6% at fill 0.950 (above the ~0.94 DC service target). The oracle marks ~17% remaining headroom.
+Forecasting head-to-head on the same 3,000-series subset:
 
-Forecasting (probabilistic, head-to-head on same 3k subset):
+| Model | Pinball | 80% coverage | WRMSSE (median) |
+|---|---|---|---|
+| LightGBM-Tweedie (point) | — | — | **0.493** |
+| LightGBM-quantile | **0.631** | **0.860** | — |
+| GRU-quantile | 0.644 | 0.833 | — |
 
-| Model | Pinball | 80% coverage |
-|---|---|---|
-| LightGBM-quantile | 0.631 | 0.860 |
-| GRU-quantile | 0.644 | 0.833 |
-
-Trees win on this tabular problem. The GRU is fixed and calibrated but kept as the sequence-model comparison. Point forecast: LightGBM-Tweedie at WRMSSE 0.493.
-
-Two findings worth flagging: (1) gradient-boosted trees beat the neural net on tabular M5 — reported as-is rather than hidden. (2) On the full 10k twin, the RL edge needs *both* the calibrated forecast in-state *and* cross-DC pooling — removing either flips it to a loss (ablations in notebook 05).
-
-Full numbers in [`RESULTS.md`](RESULTS.md).
+Two findings I'd call honest negatives: GBM beats the neural net on tabular M5 (reported as-is), and the RL edge on the full 10k twin needs *both* the calibrated forecast in-state *and* cross-DC pooling — removing either flips it to a loss. An earlier run on a smaller top-volume subset had suggested pooling didn't matter; the full-scale run corrected that.
 
 | Cost/fill frontier | Cost breakdown |
 |---|---|
 | ![frontier](figures/cost_fill_frontier.png) | ![decomposition](figures/cost_decomposition.png) |
+
+Full numbers in [`RESULTS.md`](RESULTS.md).
+
+---
+
+## One thing specific to this dataset
+
+The M5 data has pronounced sales spikes on the 1st–3rd and 28th–31st of each month — SNAP (food stamp) disbursement and payday patterns. I added an `is_payday_window` binary feature (flag those 6 days per month) after noticing the pattern in lag residuals. It's a small thing but it's the kind of signal a rolling mean would wash out.
+
+A weirder one: `sell_prices.csv` in M5 is at item×store×week granularity, not daily. Joining it to the daily panel without forward-filling the weekly prices creates a lot of accidental NaNs that make price-ratio features silently degenerate. That bit me in preprocessing.
 
 ---
 
@@ -53,31 +58,34 @@ Full numbers in [`RESULTS.md`](RESULTS.md).
 notebooks/
   00_data_preprocessing.ipynb
   01_baseline_forecasting.ipynb
-  02b_lightgbm_quantile.ipynb       production quantile forecaster
-  02_probabilistic_neural_forecasting.ipynb   GRU quantile forecaster
+  02b_lightgbm_quantile.ipynb        production quantile forecaster
+  02_probabilistic_neural_forecasting.ipynb   GRU quantile (calibrated, for comparison)
   03_inventory_segmentation.ipynb
   04_inventory_digital_twin.ipynb
   05_rl_inventory_agent.ipynb
   06_order_policy_and_results.ipynb
 src/
-  metrics.py      WRMSSE, pinball, coverage, inventory metrics
-  simulator.py    multi-DC digital twin + oracle
-  policies.py     classical baselines + clairvoyant oracle
-  dc_forecast.py  rolling out-of-sample DC-level quantile forecast
-  features.py     shared feature engineering
-  tracking.py     experiment logger
+  metrics.py       WRMSSE (all 12 M5 levels), pinball, coverage, inventory metrics
+  simulator.py     multi-DC digital twin + clairvoyant oracle
+  policies.py      Newsvendor, base-stock, min/max, fixed-order, oracle
+  dc_forecast.py   rolling out-of-sample DC-level quantile forecast for the twin state
+  features.py      lag, rolling, calendar, price features (shared by preprocessing + notebooks)
+  tracking.py      experiment logger → data/experiments.csv
+scratch/           early DQN exploration (abandoned; kept for reference)
 ```
 
 ---
 
 ## Setup
 
-Download the M5 dataset from Kaggle into `data/raw_m5/` (`sales_train_evaluation.csv`, `sell_prices.csv`, `calendar.csv`). Everything downstream is built by notebook 00.
+Download the M5 dataset from Kaggle (`m5-forecasting-accuracy`) into `data/raw_m5/` — you need `sales_train_evaluation.csv`, `sell_prices.csv`, and `calendar.csv`. Notebook 00 builds everything downstream. A `SUBSET` flag controls scale (a few hundred series on CPU up to the full panel).
 
 ```bash
 pip install -r requirements.txt
-# run notebooks in order: 00 → 01 → 02b → 02 → 03 → 04 → 05 → 06
+# notebooks in order: 00 → 01 → 02b → 02 → 03 → 04 → 05 → 06
 pytest -q
 ```
 
-Notebooks 02 and 05 use PyTorch (MPS/CUDA/CPU auto-detected). Everything else is CPU.
+PyTorch notebooks (02, 05) auto-detect MPS/CUDA/CPU. Everything else is CPU only.
+
+Note: train LightGBM and PyTorch in separate kernel processes — both ship OpenMP runtimes that conflict on macOS. Notebooks 04 and 05 already do this by design (04 caches the DC forecast, 05 loads it).
